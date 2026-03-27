@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" fill="none">
+  <!-- Sky gradient -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+    <linearGradient id="bld" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="400" height="200" rx="8" fill="url(#sky)"/>
+  <!-- Ground -->
+  <rect y="150" width="400" height="50" rx="0" fill="#94a3b8"/>
+  <rect y="148" width="400" height="6" fill="#64748b"/>
+  <!-- Parking building -->
+  <rect x="60" y="50" width="280" height="100" rx="6" fill="url(#bld)" stroke="#94a3b8" stroke-width="2"/>
+  <!-- Floors -->
+  <line x1="60" y1="83" x2="340" y2="83" stroke="#94a3b8" stroke-width="1.5"/>
+  <line x1="60" y1="116" x2="340" y2="116" stroke="#94a3b8" stroke-width="1.5"/>
+  <!-- Entrance -->
+  <rect x="165" y="120" width="70" height="30" rx="3" fill="#475569"/>
+  <rect x="175" y="125" width="50" height="20" rx="2" fill="#1e293b"/>
+  <!-- Windows row 1 -->
+  <rect x="80" y="58" width="30" height="18" rx="2" fill="#e0f2fe"/>
+  <rect x="120" y="58" width="30" height="18" rx="2" fill="#e0f2fe"/>
+  <rect x="250" y="58" width="30" height="18" rx="2" fill="#e0f2fe"/>
+  <rect x="290" y="58" width="30" height="18" rx="2" fill="#e0f2fe"/>
+  <!-- Windows row 2 -->
+  <rect x="80" y="91" width="30" height="18" rx="2" fill="#e0f2fe"/>
+  <rect x="120" y="91" width="30" height="18" rx="2" fill="#e0f2fe"/>
+  <rect x="250" y="91" width="30" height="18" rx="2" fill="#e0f2fe"/>
+  <rect x="290" y="91" width="30" height="18" rx="2" fill="#e0f2fe"/>
+  <!-- P sign circle -->
+  <circle cx="200" cy="80" r="22" fill="#2563eb"/>
+  <text x="200" y="88" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="bold" fill="white">P</text>
+  <!-- Cars on ground -->
+  <rect x="80" y="155" width="40" height="20" rx="4" fill="#3b82f6"/>
+  <rect x="85" y="152" width="12" height="6" rx="2" fill="#93c5fd"/>
+  <rect x="103" y="152" width="12" height="6" rx="2" fill="#93c5fd"/>
+  <circle cx="88" cy="176" r="4" fill="#1e293b"/>
+  <circle cx="112" cy="176" r="4" fill="#1e293b"/>
+  <rect x="270" y="155" width="40" height="20" rx="4" fill="#ef4444"/>
+  <rect x="275" y="152" width="12" height="6" rx="2" fill="#fca5a5"/>
+  <rect x="293" y="152" width="12" height="6" rx="2" fill="#fca5a5"/>
+  <circle cx="278" cy="176" r="4" fill="#1e293b"/>
+  <circle cx="302" cy="176" r="4" fill="#1e293b"/>
+  <!-- Road markings -->
+  <rect x="140" y="165" width="20" height="3" rx="1" fill="#f8fafc"/>
+  <rect x="185" y="165" width="20" height="3" rx="1" fill="#f8fafc"/>
+  <rect x="230" y="165" width="20" height="3" rx="1" fill="#f8fafc"/>
+  <!-- Trees -->
+  <circle cx="30" cy="130" r="16" fill="#4ade80"/>
+  <circle cx="22" cy="125" r="12" fill="#22c55e"/>
+  <rect x="27" y="140" width="6" height="12" rx="1" fill="#92400e"/>
+  <circle cx="370" cy="130" r="16" fill="#4ade80"/>
+  <circle cx="378" cy="125" r="12" fill="#22c55e"/>
+  <rect x="367" y="140" width="6" height="12" rx="1" fill="#92400e"/>
+</svg>

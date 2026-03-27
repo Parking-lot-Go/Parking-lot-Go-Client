@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(curl -s http://localhost:4000/api/parking)",
+      "Bash(npx vite:*)",
+      "Bash(kill %1)",
+      "Bash(curl -sI \"https://dapi.kakao.com/v2/maps/sdk.js?appkey=84a095d4dd89a3c22be986b98e0ad6a6&libraries=services,clusterer&autoload=false\")",
+      "Bash(curl -sL \"https://apis.map.kakao.com/web/guide/\")",
+      "WebFetch(domain:apis.map.kakao.com)",
+      "Bash(curl -s \"https://dapi.kakao.com/v2/local/search/address.json?query=강남구+일원동+716-2\" -H \"Authorization: KakaoAK 84a095d4dd89a3c22be986b98e0ad6a6\")",
+      "Bash(curl:*)",
+      "Bash(npx --yes sharp-cli -i \"C:/car/public/favicon.svg\" -o \"C:/car/public/pwa-192x192.png\" resize 192 192)",
+      "Bash(npx sharp-cli:*)",
+      "Bash(netsh advfirewall:*)"
+    ]
+  }
+}
