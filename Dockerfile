@@ -3,11 +3,18 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+# ← 이 부분 추가
+ARG VITE_KAKAO_APP_KEY
+ARG VITE_API_BASE_URL
+ARG VITE_BACKEND_URL
+ENV VITE_KAKAO_APP_KEY=$VITE_KAKAO_APP_KEY
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-
 RUN npm run build
 
 # ── Stage 2: Production ──
