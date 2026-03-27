@@ -38,7 +38,19 @@ if (!SEOUL_API_KEY || !SEOUL_API_HOST) {
 }
 const SEOUL_API_BASE = `${SEOUL_API_HOST}/${SEOUL_API_KEY}/json/GetParkingInfo`;
 
-async function fetchSeoulParking() {
+// 인메모리 캐시: 실시간 60초, 비실시간 5분
+const cache = { data: null, updatedAt: 0 };
+const CACHE_TTL_REALTIME = 60 * 1000;
+const CACHE_TTL_STATIC = 5 * 60 * 1000;
+
+async function fetchSeoulParking(typeCode) {
+  const ttl = typeCode === '1' ? CACHE_TTL_REALTIME : CACHE_TTL_STATIC;
+  const now = Date.now();
+
+  if (cache.data && (now - cache.updatedAt) < ttl) {
+    return cache.data;
+  }
+
   const all = [];
   const PAGE_SIZE = 1000;
   let start = 1;
@@ -93,6 +105,10 @@ async function fetchSeoulParking() {
     }
     start += PAGE_SIZE;
   }
+
+  cache.data = all;
+  cache.updatedAt = Date.now();
+  console.log(`[Cache] 서울 API 데이터 갱신 (${all.length}건)`);
   return all;
 }
 
@@ -102,10 +118,16 @@ app.get('/api/v1/parking', async (req, res) => {
     const type = req.query.type || 'REALTIME';
     const typeCode = TYPE_CODE_MAP[type] || '1';
 
-    let data = await fetchSeoulParking();
+    let data = await fetchSeoulParking(typeCode);
 
     // LNKG_SE 필드로 연계구분 필터링
     data = data.filter((lot) => lot.linkType === typeCode);
+
+    // district 파라미터로 구/군 필터링
+    const district = req.query.district;
+    if (district) {
+      data = data.filter((lot) => lot.district.includes(district));
+    }
 
     data = filterByBounds(data, req.query);
 
@@ -145,6 +167,13 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Server running on port ${PORT}`);
+  // 서버 시작 시 서울 API 데이터 미리 로드 (첫 요청 즉시 응답)
+  try {
+    await fetchSeoulParking('1');
+    console.log(`[Cache] 서울 API 데이터 사전 로드 완료`);
+  } catch (err) {
+    console.error('[Cache] 사전 로드 실패:', err.message);
+  }
 });

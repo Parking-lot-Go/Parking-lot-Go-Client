@@ -28,8 +28,8 @@ export default function App() {
     console.log(`[Search] ${placeName} 으로 이동`);
   }, []);
 
-  const handleBoundsChange = useCallback((bounds: MapBounds) => {
-    updateBounds(bounds);
+  const handleBoundsChange = useCallback((bounds: MapBounds, region?: string) => {
+    updateBounds(bounds, region);
   }, [updateBounds]);
 
   return (
@@ -53,6 +53,7 @@ export default function App() {
             onSearchResult={handleSearchResult}
             onCenterRegionChange={setCenterRegion}
             onBoundsChange={handleBoundsChange}
+            dataMode={mode}
           />
         </main>
       </div>

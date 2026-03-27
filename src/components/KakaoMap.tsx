@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { ParkingLot, MapBounds } from '../types/parking';
+import type { ParkingLot, MapBounds, DataMode } from '../types/parking';
 
 const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_APP_KEY;
 const KAKAO_SDK_URL =
@@ -12,7 +12,8 @@ interface Props {
   searchKeyword: string | null;
   onSearchResult: (placeName: string, lat: number, lng: number) => void;
   onCenterRegionChange?: (region: string) => void;
-  onBoundsChange?: (bounds: MapBounds) => void;
+  onBoundsChange?: (bounds: MapBounds, region?: string) => void;
+  dataMode: DataMode;
 }
 
 function toLat(lot: ParkingLot) { return parseFloat(lot.lat); }
@@ -39,10 +40,10 @@ function formatTime(t: string): string {
   return t.slice(0, 2) + ':' + t.slice(2);
 }
 
-export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, searchKeyword, onSearchResult, onCenterRegionChange, onBoundsChange }: Props) {
+export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, searchKeyword, onSearchResult, onCenterRegionChange, onBoundsChange, dataMode }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
-  const overlaysRef = useRef<kakao.maps.CustomOverlay[]>([]);
+  const overlayMapRef = useRef<Map<string, { overlay: kakao.maps.CustomOverlay; el: HTMLDivElement }>>(new Map());
   const popupRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const myLocOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const [sdkReady, setSdkReady] = useState(false);
@@ -92,43 +93,71 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
       });
       mapRef.current = map;
 
-      // 지도 중심 변경 시 지역명 역지오코딩
+      // 역지오코딩 (지역명 표시용) — 별도 처리
       const geocoder = new kakao.maps.services.Geocoder();
-      let regionTimer: ReturnType<typeof setTimeout>;
+      let geocodeTimer: ReturnType<typeof setTimeout>;
+      let lastGeoLat = 0;
+      let lastGeoLng = 0;
+      let lastRegionName = '';
 
-      const updateMapInfo = () => {
-        clearTimeout(regionTimer);
-        regionTimer = setTimeout(() => {
+      const updateRegionName = () => {
+        clearTimeout(geocodeTimer);
+        geocodeTimer = setTimeout(() => {
           const center = map.getCenter();
-          geocoder.coord2RegionCode(center.getLng(), center.getLat(), (result: any[], status: string) => {
+          const lat = center.getLat();
+          const lng = center.getLng();
+
+          const moved = Math.abs(lat - lastGeoLat) + Math.abs(lng - lastGeoLng);
+          if (moved < 0.005 && lastRegionName) return;
+
+          geocoder.coord2RegionCode(lng, lat, (result: any[], status: string) => {
             if (status === kakao.maps.services.Status.OK && result.length > 0) {
               const r = result.find((item: any) => item.region_type === 'H') || result[0];
               const name = [r.region_1depth_name, r.region_2depth_name, r.region_3depth_name]
                 .filter(Boolean)
                 .join(' ');
+              lastGeoLat = lat;
+              lastGeoLng = lng;
+              lastRegionName = name;
               onCenterRegionChange?.(name);
             }
           });
-
-          const b = map.getBounds();
-          const sw = b.getSouthWest();
-          const ne = b.getNorthEast();
-          onBoundsChange?.({
-            swLat: sw.getLat(),
-            swLng: sw.getLng(),
-            neLat: ne.getLat(),
-            neLng: ne.getLng(),
-          });
-        }, 300);
+        }, 1000);
       };
 
-      kakao.maps.event.addListener(map, 'idle', updateMapInfo);
-      updateMapInfo();
+      // bounds 변경 (데이터 요청용) — 즉시 처리
+      const updateBounds = () => {
+        const b = map.getBounds();
+        const sw = b.getSouthWest();
+        const ne = b.getNorthEast();
+        onBoundsChange?.({
+          swLat: sw.getLat(),
+          swLng: sw.getLng(),
+          neLat: ne.getLat(),
+          neLng: ne.getLng(),
+        }, lastRegionName);
+      };
+
+      kakao.maps.event.addListener(map, 'idle', () => {
+        updateBounds();
+        updateRegionName();
+      });
+      updateBounds();
+      updateRegionName();
 
       kakao.maps.event.addListener(map, 'click', () => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
         if (popupRef.current) {
           popupRef.current.setMap(null);
           popupRef.current = null;
+        }
+      });
+
+      kakao.maps.event.addListener(map, 'dragstart', () => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
         }
       });
     } catch (err) {
@@ -203,12 +232,28 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
     if (!map) return;
     closePopup();
 
-    const color = getStatusColor(lot);
-    const label = getStatusLabel(lot);
-    const pct = lot.totalCapacity > 0
+    const isRealtime = dataMode === 'REALTIME';
+    const color = isRealtime ? getStatusColor(lot) : '#9ca3af';
+    const label = isRealtime ? getStatusLabel(lot) : '비실시간';
+    const pct = isRealtime && lot.totalCapacity > 0
       ? Math.round(((lot.totalCapacity - lot.availableCount) / lot.totalCapacity) * 100)
       : 0;
     const isPaid = lot.feeType === '유료';
+
+    const availSection = isRealtime
+      ? `<div class="popup-avail-bar">
+            <div class="popup-avail-info">
+              <span class="popup-avail-label">주차 가능</span>
+              <span><strong style="color:${color}">${lot.availableCount}</strong> / ${lot.totalCapacity}면</span>
+            </div>
+            <div class="popup-bar"><div class="popup-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          </div>`
+      : `<div class="popup-avail-bar">
+            <div class="popup-avail-info">
+              <span class="popup-avail-label">총 주차면</span>
+              <span><strong>${lot.totalCapacity}면</strong></span>
+            </div>
+          </div>`;
 
     const el = document.createElement('div');
     el.className = 'map-popup';
@@ -224,13 +269,7 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
             <div class="popup-name">${lot.parkingName}</div>
             <span class="popup-badge" style="background:${color}">${label}</span>
           </div>
-          <div class="popup-avail-bar">
-            <div class="popup-avail-info">
-              <span class="popup-avail-label">주차 가능</span>
-              <span><strong style="color:${color}">${lot.availableCount}</strong> / ${lot.totalCapacity}면</span>
-            </div>
-            <div class="popup-bar"><div class="popup-bar-fill" style="width:${pct}%;background:${color}"></div></div>
-          </div>
+          ${availSection}
           <div class="popup-section">
             <div class="popup-info-row">
               <svg class="popup-icon" viewBox="0 0 18 18"><path fill="#8B95A1" d="M9,1C5.4,1,2.5,3.7,2.5,7.1c0,1.2.4,2.3,1,3.3l5.1,6.1c.2.2.6.2.8,0l5.1-6.1c.7-1,1-2.1,1-3.3C15.5,3.7,12.6,1,9,1zM9,9c-.8,0-1.5-.7-1.5-1.5S8.2,6,9,6s1.5.7,1.5,1.5S9.8,9,9,9z"/></svg>
@@ -272,53 +311,93 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
       xAnchor: 0.5,
       zIndex: 20,
     });
-  }, [closePopup]);
+  }, [closePopup, dataMode]);
 
-  // 3) Render markers
+  // 3) Render markers (diff 기반: 기존 마커 유지, 변경분만 업데이트)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !sdkReady) return;
 
-    overlaysRef.current.forEach((o) => o.setMap(null));
-    overlaysRef.current = [];
+    const isRealtime = dataMode === 'REALTIME';
+    const prev = overlayMapRef.current;
+    const next = new Map<string, { overlay: kakao.maps.CustomOverlay; el: HTMLDivElement }>();
+    const newKeys = new Set<string>();
 
     parkingLots.forEach((lot) => {
       const lat = toLat(lot);
       const lng = toLng(lot);
       if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return;
 
-      const color = getStatusColor(lot);
-      const pos = new kakao.maps.LatLng(lat, lng);
+      const key = lot.parkingCode || `${lat}_${lng}`;
+      newKeys.add(key);
 
-      const el = document.createElement('div');
-      el.className = 'map-marker';
-      el.innerHTML = `
-        <div class="marker-pin" style="--c:${color}">
-          <div class="marker-head">
-            <span class="marker-p">P</span>
-            <span class="marker-count">${lot.availableCount}</span>
-          </div>
-          <div class="marker-tail"></div>
-        </div>
-      `;
+      const color = isRealtime ? getStatusColor(lot) : '#9ca3af';
 
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onSelectLot(lot);
-      });
+      const existing = prev.get(key);
+      if (existing) {
+        // 기존 마커 업데이트 (DOM만 교체, 오버레이 유지)
+        existing.el.innerHTML = isRealtime
+          ? `<div class="marker-pin" style="--c:${color}">
+              <div class="marker-head">
+                <span class="marker-p">P</span>
+                <span class="marker-count">${lot.availableCount}</span>
+              </div>
+              <div class="marker-tail"></div>
+            </div>`
+          : `<div class="marker-pin" style="--c:${color}">
+              <div class="marker-head">
+                <span class="marker-p">P</span>
+              </div>
+              <div class="marker-tail"></div>
+            </div>`;
+        next.set(key, existing);
+      } else {
+        // 새 마커 생성
+        const pos = new kakao.maps.LatLng(lat, lng);
+        const el = document.createElement('div');
+        el.className = 'map-marker';
+        el.innerHTML = isRealtime
+          ? `<div class="marker-pin" style="--c:${color}">
+              <div class="marker-head">
+                <span class="marker-p">P</span>
+                <span class="marker-count">${lot.availableCount}</span>
+              </div>
+              <div class="marker-tail"></div>
+            </div>`
+          : `<div class="marker-pin" style="--c:${color}">
+              <div class="marker-head">
+                <span class="marker-p">P</span>
+              </div>
+              <div class="marker-tail"></div>
+            </div>`;
 
-      const overlay = new kakao.maps.CustomOverlay({
-        position: pos,
-        content: el,
-        map,
-        yAnchor: 1,
-        xAnchor: 0.5,
-        zIndex: 5,
-      });
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onSelectLot(lot);
+        });
 
-      overlaysRef.current.push(overlay);
+        const overlay = new kakao.maps.CustomOverlay({
+          position: pos,
+          content: el,
+          map,
+          yAnchor: 1,
+          xAnchor: 0.5,
+          zIndex: 5,
+        });
+
+        next.set(key, { overlay, el });
+      }
     });
-  }, [parkingLots, sdkReady, onSelectLot, closePopup]);
+
+    // 새 데이터에 없는 마커만 제거
+    prev.forEach((entry, key) => {
+      if (!newKeys.has(key)) {
+        entry.overlay.setMap(null);
+      }
+    });
+
+    overlayMapRef.current = next;
+  }, [parkingLots, sdkReady, onSelectLot, dataMode]);
 
   // 4) Pan to selected — 부드럽게 이동 후 팝업
   useEffect(() => {

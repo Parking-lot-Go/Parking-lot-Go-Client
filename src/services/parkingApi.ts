@@ -2,8 +2,11 @@ import type { ParkingLot, ParkingResponse, MapBounds, DataMode } from '../types/
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
-export async function fetchParkingLots(type: DataMode, bounds?: MapBounds): Promise<ParkingLot[]> {
+export async function fetchParkingLots(type: DataMode, bounds?: MapBounds, district?: string): Promise<ParkingLot[]> {
   const params = new URLSearchParams({ type });
+  if (district) {
+    params.set('district', district);
+  }
   if (bounds) {
     params.set('swLat', String(bounds.swLat));
     params.set('swLng', String(bounds.swLng));
