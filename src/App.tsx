@@ -25,7 +25,7 @@ export default function App() {
   }, []);
 
   const handleSearchResult = useCallback((placeName: string, _lat: number, _lng: number) => {
-    console.log(`[Search-tat] ${placeName} 으로 이동`);
+    console.log(`[Search] ${placeName} 으로 이동`);
   }, []);
 
   const handleBoundsChange = useCallback((bounds: MapBounds) => {
