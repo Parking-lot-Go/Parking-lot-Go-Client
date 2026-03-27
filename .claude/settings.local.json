@@ -17,7 +17,8 @@
       "Bash(npx --yes sharp-cli -i public/Parking-log-Go.jpeg -o public/pwa-192x192.png resize 192 192)",
       "Bash(npx --yes sharp-cli -i public/Parking-log-Go.jpeg -o public/pwa-512x512.png resize 512 512)",
       "Bash(ls -la public/pwa-*.png)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(npm run:*)"
     ]
   }
 }

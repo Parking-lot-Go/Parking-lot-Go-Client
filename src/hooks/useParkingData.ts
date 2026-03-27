@@ -10,9 +10,9 @@ export function useParkingData() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mode, setMode] = useState<DataMode>('REALTIME');
-  const boundsRef = useRef<MapBounds | undefined>();
+  const boundsRef = useRef<MapBounds | undefined>(undefined);
   const modeRef = useRef<DataMode>(mode);
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const load = useCallback(async (m: DataMode, bounds?: MapBounds) => {
     try {
