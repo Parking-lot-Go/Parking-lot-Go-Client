@@ -51,8 +51,8 @@ export default function Header({
         )}
         <div className="mode-toggle">
           <button
-            className={`mode-btn ${dataMode === 'NON_REALTIME' ? 'active' : ''}`}
-            onClick={() => onModeChange('NON_REALTIME')}
+            className={`mode-btn ${dataMode === 'NOT_LINKED' ? 'active' : ''}`}
+            onClick={() => onModeChange('NOT_LINKED')}
           >
             비실시간
           </button>
