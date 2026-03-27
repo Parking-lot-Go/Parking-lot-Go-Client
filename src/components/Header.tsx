@@ -21,6 +21,7 @@ export default function Header({
 }: Props) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
+      (e.target as HTMLInputElement).blur();
       onSearch(searchQuery.trim());
     }
   };
@@ -32,6 +33,7 @@ export default function Header({
 
   const handleSearchClick = () => {
     if (searchQuery.trim()) {
+      document.activeElement instanceof HTMLElement && document.activeElement.blur();
       onSearch(searchQuery.trim());
     }
   };
