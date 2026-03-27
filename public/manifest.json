@@ -1,19 +1,13 @@
 {
-  "name": "주차장고",
-  "short_name": "주차장고",
+  "name": "주차장go",
+  "short_name": "주차장go",
   "description": "서울 주차장 검색",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#863bff",
+  "theme_color": "#1e293b",
   "orientation": "portrait",
   "icons": [
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
     {
       "src": "/pwa-192x192.png",
       "sizes": "192x192",

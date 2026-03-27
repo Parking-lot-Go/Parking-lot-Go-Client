@@ -177,16 +177,23 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
   const handleMyLocation = useCallback(() => {
     if (!navigator.geolocation) { setGpsStatus('error'); return; }
     setGpsStatus('loading');
+
+    // 1차: 캐시 허용, 정확도 낮춤 → PC/모바일 모두 빠르게 응답
     navigator.geolocation.getCurrentPosition(
       (pos) => moveToMyLocation(pos.coords.latitude, pos.coords.longitude),
-      () => {
+      (firstErr) => {
+        console.warn('[GPS] 1차 실패:', firstErr.message);
+        // 2차: 정확도 높임, 타임아웃 넉넉하게
         navigator.geolocation.getCurrentPosition(
           (pos) => moveToMyLocation(pos.coords.latitude, pos.coords.longitude),
-          (err) => { console.error('[GPS]', err.message); setGpsStatus('error'); },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
+          (secondErr) => {
+            console.error('[GPS] 2차 실패:', secondErr.message);
+            setGpsStatus('error');
+          },
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 },
         );
       },
-      { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
   }, [moveToMyLocation]);
 
@@ -274,7 +281,6 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
 
     overlaysRef.current.forEach((o) => o.setMap(null));
     overlaysRef.current = [];
-    closePopup();
 
     parkingLots.forEach((lot) => {
       const lat = toLat(lot);
@@ -334,9 +340,7 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
     const shiftedPos = proj.coordsFromPoint(point);
     map.panTo(shiftedPos);
 
-    // panTo 애니메이션 완료 후 팝업
-    const timer = setTimeout(() => showPopup(selectedLot), 500);
-    return () => clearTimeout(timer);
+    showPopup(selectedLot);
   }, [selectedLot, showPopup]);
 
   // 5) Kakao Places search

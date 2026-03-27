@@ -14,6 +14,18 @@ declare namespace kakao.maps {
     setLevel(level: number): void;
     getLevel(): number;
     panTo(latlng: LatLng): void;
+    getBounds(): LatLngBounds;
+    getProjection(): MapProjection;
+  }
+
+  interface LatLngBounds {
+    getSouthWest(): LatLng;
+    getNorthEast(): LatLng;
+  }
+
+  interface MapProjection {
+    pointFromCoords(latlng: LatLng): Point;
+    coordsFromPoint(point: Point): LatLng;
   }
 
   class LatLng {
@@ -38,6 +50,8 @@ declare namespace kakao.maps {
 
   class Point {
     constructor(x: number, y: number);
+    x: number;
+    y: number;
   }
 
   class InfoWindow {
@@ -78,6 +92,20 @@ declare namespace kakao.maps {
         addr: string,
         callback: (result: GeocoderResult[], status: Status) => void,
       ): void;
+      coord2RegionCode(
+        lng: number,
+        lat: number,
+        callback: (result: RegionCodeResult[], status: Status) => void,
+      ): void;
+    }
+
+    interface RegionCodeResult {
+      region_type: string;
+      region_1depth_name: string;
+      region_2depth_name: string;
+      region_3depth_name: string;
+      region_4depth_name: string;
+      code: string;
     }
 
     interface PlaceResult {

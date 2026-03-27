@@ -1,7 +1,7 @@
-const CACHE_NAME = 'juchajango-v1';
+const CACHE_NAME = 'juchajango-v2';
 const STATIC_ASSETS = [
   '/',
-  '/favicon.svg',
+  '/Parking-log-Go.jpeg',
   '/manifest.json',
 ];
 
