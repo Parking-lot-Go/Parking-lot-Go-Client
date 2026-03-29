@@ -7,10 +7,9 @@ interface Props {
 }
 
 const TAB_TITLES: Record<TabId, string> = {
-  community: '커뮤니티',
   nearby: '내 주변',
+  home: '홈',
   saved: '저장',
-  mypage: '마이페이지',
 };
 
 export default function TabPage({ tab, open, onClose }: Props) {
