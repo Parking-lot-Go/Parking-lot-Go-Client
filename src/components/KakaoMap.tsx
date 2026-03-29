@@ -1,14 +1,47 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { ParkingLot, MapBounds, DataMode } from '../types/parking';
+import type { ParkingLot, ParkingLotSummary, MapBounds, DataMode } from '../types/parking';
+
+type AnyLot = ParkingLot | ParkingLotSummary;
+
+function isFullLot(lot: AnyLot): lot is ParkingLot {
+  return 'address' in lot;
+}
+
+function openNavigation(lat: number, lng: number, name: string) {
+  const provider = localStorage.getItem('preferredNav') || 'naver';
+  const encoded = encodeURIComponent(name);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if (provider === 'naver') {
+    if (isAndroid) {
+      window.location.href = `intent://route/car?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=carpark#Intent;scheme=nmap;package=com.nhn.android.nmap;end`;
+    } else if (isIOS) {
+      window.location.href = `nmap://route/car?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=carpark`;
+    } else {
+      window.open(`https://map.naver.com/index.nhn?elng=${lng}&elat=${lat}&etext=${encoded}&menu=route&pathType=0`, '_blank');
+    }
+    return;
+  }
+
+  // 카카오내비 (기본값)
+  if (isAndroid) {
+    window.location.href = `intent://route?ep=${lat},${lng}&by=CAR&destinationName=${encoded}#Intent;scheme=kakaonavi;package=com.locnall.KimGiSa;end`;
+  } else if (isIOS) {
+    window.location.href = `kakaonavi://route?ep=${lat},${lng}&by=CAR&destinationName=${encoded}`;
+  } else {
+    window.open(`https://map.kakao.com/link/to/${encoded},${lat},${lng}`, '_blank');
+  }
+}
 
 const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_APP_KEY;
 const KAKAO_SDK_URL =
   `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&libraries=services,clusterer&autoload=false`;
 
 interface Props {
-  parkingLots: ParkingLot[];
-  selectedLot: ParkingLot | null;
-  onSelectLot: (lot: ParkingLot) => void;
+  parkingLots: AnyLot[];
+  selectedLot: AnyLot | null;
+  onSelectLot: (lot: AnyLot) => void;
   searchKeyword: string | null;
   onSearchResult: (placeName: string, lat: number, lng: number) => void;
   onCenterRegionChange?: (region: string) => void;
@@ -16,10 +49,10 @@ interface Props {
   dataMode: DataMode;
 }
 
-function toLat(lot: ParkingLot) { return parseFloat(lot.lat); }
-function toLng(lot: ParkingLot) { return parseFloat(lot.lng); }
+function toLat(lot: AnyLot) { return typeof lot.lat === 'number' ? lot.lat : parseFloat(lot.lat as string); }
+function toLng(lot: AnyLot) { return typeof lot.lng === 'number' ? lot.lng : parseFloat(lot.lng as string); }
 
-function getStatusColor(lot: ParkingLot): string {
+function getStatusColor(lot: AnyLot): string {
   if (lot.totalCapacity === 0) return '#9ca3af';
   const ratio = lot.availableCount / lot.totalCapacity;
   if (ratio > 0.3) return '#22c55e';
@@ -27,7 +60,7 @@ function getStatusColor(lot: ParkingLot): string {
   return '#ef4444';
 }
 
-function getStatusLabel(lot: ParkingLot): string {
+function getStatusLabel(lot: AnyLot): string {
   if (lot.totalCapacity === 0) return '정보없음';
   const ratio = lot.availableCount / lot.totalCapacity;
   if (ratio > 0.3) return '여유';
@@ -227,14 +260,15 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
   }, [moveToMyLocation]);
 
   // ===== Popup =====
-  const showPopup = useCallback((lot: ParkingLot) => {
+  const showPopup = useCallback((lot: AnyLot) => {
     const map = mapRef.current;
     if (!map) return;
     closePopup();
 
     const isRealtime = dataMode === 'REALTIME';
+    const full = isFullLot(lot);
     const color = isRealtime ? getStatusColor(lot) : '#9ca3af';
-    const label = isRealtime ? getStatusLabel(lot) : '비실시간';
+    const label = isRealtime ? getStatusLabel(lot) : '';
     const pct = isRealtime && lot.totalCapacity > 0
       ? Math.round(((lot.totalCapacity - lot.availableCount) / lot.totalCapacity) * 100)
       : 0;
@@ -262,37 +296,45 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
         <button class="popup-close">&times;</button>
         <div class="popup-img">
           <img src="/parking-default.svg" alt="${lot.parkingName}" />
-          <span class="popup-img-type">${lot.parkingTypeName}</span>
+          <span class="popup-img-type">${full ? lot.parkingTypeName : '-'}</span>
         </div>
         <div class="popup-body">
           <div class="popup-header">
             <div class="popup-name">${lot.parkingName}</div>
-            <span class="popup-badge" style="background:${color}">${label}</span>
+            ${label ? `<span class="popup-badge" style="background:${color}">${label}</span>` : ''}
           </div>
           ${availSection}
           <div class="popup-section">
-            <div class="popup-info-row">
+            ${full ? `<div class="popup-info-row">
               <svg class="popup-icon" viewBox="0 0 18 18"><path fill="#8B95A1" d="M9,1C5.4,1,2.5,3.7,2.5,7.1c0,1.2.4,2.3,1,3.3l5.1,6.1c.2.2.6.2.8,0l5.1-6.1c.7-1,1-2.1,1-3.3C15.5,3.7,12.6,1,9,1zM9,9c-.8,0-1.5-.7-1.5-1.5S8.2,6,9,6s1.5.7,1.5,1.5S9.8,9,9,9z"/></svg>
               <span>${lot.address}</span>
-            </div>
-            <div class="popup-info-row">
+            </div>` : ''}
+            ${full ? `<div class="popup-info-row">
               <svg class="popup-icon" viewBox="0 0 18 18"><path fill="#8B95A1" d="M9,1.5C4.9,1.5,1.5,4.9,1.5,9s3.4,7.5,7.5,7.5,7.5-3.4,7.5-7.5S13.1,1.5,9,1.5zM11.7,11.5c-.2.3-.6.3-.9.1L8.4,9.9V5.8c0-.4.3-.6.6-.6s.6.3.6.6v3.4l1.9,1.4c.3.2.4.6.2.9z"/></svg>
               <span>평일 ${formatTime(lot.weekdayStart)} ~ ${formatTime(lot.weekdayEnd)}</span>
-            </div>
-            ${lot.phone ? `<div class="popup-info-row">
+            </div>` : ''}
+            ${full && lot.phone ? `<div class="popup-info-row">
               <svg class="popup-icon" viewBox="0 0 18 18"><path fill="#8B95A1" d="M13.8,15.6c-.2.2-.6.3-.9.3C7.6,14.6,3.4,10.4,2.1,5.1c-.1-.3,0-.6.3-.9L3.9,2.7c.4-.4,1-.4,1.4,0l2.5,2.5c.4.4.4,1,0,1.4l-.1.1-.7.8c-.4.3-.4.8-.2,1.2.8,1.2,1.9,2.2,3.1,2.9l1.3-1.3c.4-.4,1-.4,1.4,0l2.5,2.5c.4.4.4,1,0,1.4l-1.3,1.4z"/></svg>
               <span>${lot.phone}</span>
             </div>` : ''}
             <div class="popup-info-row">
               <svg class="popup-icon" viewBox="0 0 18 18"><path fill="#8B95A1" d="M9,16.5c4.1,0,7.5-3.4,7.5-7.5S13.1,1.5,9,1.5,1.5,4.9,1.5,9s3.4,7.5,7.5,7.5zM13.5,6.1l-.7,2.4h.7c.3,0,.5.2.5.5s-.2.5-.5.5h-1.2l-.8,3h-1.3l-.8-3h-1l-.8,3H6.3l-.8-3h-1C4.2,9.5,4,9.3,4,9s.2-.5.5-.5h.8L4.6,6.1h1.2l.6,2.4h1.4l.6-2.4h1.2l.6,2.4h1.4l.6-2.4h1.3z"/></svg>
               <div class="popup-price-wrap">
-                ${isPaid
+                ${full && isPaid
                   ? `<span class="popup-price-row">기본 <em>${lot.basicFee.toLocaleString()}원</em> / ${lot.basicTime}분</span>
                      ${lot.dayMaxFee > 0 ? `<span class="popup-price-row">일 최대 <em>${lot.dayMaxFee.toLocaleString()}원</em></span>` : ''}`
-                  : `<span class="popup-price-free">무료</span>`}
+                  : `<span class="popup-price-free">${isPaid ? '유료' : '무료'}</span>`}
               </div>
             </div>
           </div>
+        </div>
+        <div class="popup-footer">
+          <button class="popup-nav-btn">
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 2.5L16.5 11H13v6.5H7V11H3.5L10 2.5Z" fill="currentColor"/>
+            </svg>
+            길 안내
+          </button>
         </div>
       </div>
       <div class="popup-tail"></div>
@@ -301,6 +343,11 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
     el.querySelector('.popup-close')!.addEventListener('click', (e) => {
       e.stopPropagation();
       closePopup();
+    });
+
+    el.querySelector('.popup-nav-btn')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openNavigation(toLat(lot), toLng(lot), lot.parkingName);
     });
 
     popupRef.current = new kakao.maps.CustomOverlay({
@@ -328,7 +375,7 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
       const lng = toLng(lot);
       if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return;
 
-      const key = lot.parkingCode || `${lat}_${lng}`;
+      const key = (isFullLot(lot) ? lot.parkingCode : null) || `${lot.id}`;
       newKeys.add(key);
 
       const color = isRealtime ? getStatusColor(lot) : '#9ca3af';

@@ -1,3 +1,13 @@
+export interface ParkingLotSummary {
+  id: number;
+  parkingName: string;
+  lat: number;
+  lng: number;
+  totalCapacity: number;
+  availableCount: number;
+  feeType: string;
+}
+
 export interface ParkingLot {
   id: number;
   parkingCode: string;

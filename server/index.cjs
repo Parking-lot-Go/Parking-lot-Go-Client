@@ -73,7 +73,7 @@ async function fetchSeoulParking(typeCode) {
       if (!lat || !lng || lat === 0 || lng === 0) continue;
 
       all.push({
-        id: r.PARKING_CODE ? parseInt(r.PARKING_CODE) : start,
+        id: all.length + 1,
         parkingCode: r.PARKING_CODE || '',
         parkingName: r.PARKING_NAME || '',
         address: r.ADDR || '',
@@ -142,15 +142,16 @@ app.get('/api/v1/parking', async (req, res) => {
   }
 });
 
-// API: Get single parking lot by code
-app.get('/api/parking/:code', async (req, res) => {
+// API: /api/v1/parking/:id — 단일 주차장 상세 조회
+app.get('/api/v1/parking/:id', async (req, res) => {
   try {
-    const data = await fetchSeoulParking();
-    const lot = data.find((l) => l.parkingCode === req.params.code);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: '유효하지 않은 ID입니다' });
 
-    if (!lot) {
-      return res.status(404).json({ error: '주차장을 찾을 수 없습니다' });
-    }
+    const data = await fetchSeoulParking('1');
+    const lot = data.find((l) => l.id === id);
+
+    if (!lot) return res.status(404).json({ error: '주차장을 찾을 수 없습니다' });
 
     res.json(lot);
   } catch (err) {

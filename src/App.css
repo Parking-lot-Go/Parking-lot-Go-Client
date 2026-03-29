@@ -645,7 +645,6 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3));
   transition: transform 0.15s;
 }
 
@@ -865,6 +864,38 @@
 .popup-price-free {
   font-weight: 600;
   color: var(--green);
+}
+
+/* Nav footer */
+.popup-footer {
+  padding: 10px 14px 12px;
+  border-top: 1px solid #f2f4f6;
+}
+
+.popup-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 0;
+  background: #3182f6;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.popup-nav-btn:hover {
+  background: #1b64da;
+}
+
+.popup-nav-btn svg {
+  width: 15px;
+  height: 15px;
 }
 
 /* Tail arrow */

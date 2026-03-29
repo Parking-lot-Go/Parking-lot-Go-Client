@@ -1,20 +1,34 @@
 import { useState, useCallback } from 'react';
 import { useParkingData } from './hooks/useParkingData';
+import { fetchParkingDetail } from './services/parkingApi';
 import Header from './components/Header';
 import KakaoMap from './components/KakaoMap';
-import type { ParkingLot, MapBounds } from './types/parking';
+import type { ParkingLot, ParkingLotSummary, MapBounds } from './types/parking';
 import './App.css';
 
 export default function App() {
   const { parkingLots, updateBounds, mode, changeMode } = useParkingData();
-  const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(null);
+  const [selectedLot, setSelectedLot] = useState<ParkingLot | ParkingLotSummary | null>(null);
   const [inputQuery, setInputQuery] = useState('');
   const [searchKeyword, setSearchKeyword] = useState<string | null>(null);
   const [centerRegion, setCenterRegion] = useState<string>('');
 
-  const handleSelectLot = useCallback((lot: ParkingLot) => {
-    setSelectedLot((prev) => (prev?.id === lot.id ? null : lot));
-  }, []);
+  const handleSelectLot = useCallback(async (lot: ParkingLot | ParkingLotSummary) => {
+    if (selectedLot?.id === lot.id) {
+      setSelectedLot(null);
+      return;
+    }
+    if ('address' in lot) {
+      setSelectedLot(lot);
+      return;
+    }
+    try {
+      const detail = await fetchParkingDetail(lot.id);
+      setSelectedLot(detail);
+    } catch {
+      setSelectedLot(lot);
+    }
+  }, [selectedLot]);
 
   const handleSearch = useCallback((query: string) => {
     setSearchKeyword(query + '::' + Date.now());

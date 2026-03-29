@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
-import type { ParkingLot, MapBounds, DataMode } from '../types/parking';
+import type { ParkingLot, ParkingLotSummary, MapBounds, DataMode } from '../types/parking';
 import { fetchParkingLots } from '../services/parkingApi';
+import staticLots from '../data/parkingLots_static.json';
 
 const REFRESH_INTERVAL = 30_000;
 const DEBOUNCE_MS = 100;
@@ -10,8 +11,19 @@ function extractDistrict(region: string): string {
   return parts.length > 1 ? parts[1].trim() : '';
 }
 
+function filterByBounds(lots: ParkingLotSummary[], bounds?: MapBounds): ParkingLotSummary[] {
+  if (!bounds) return lots;
+  return lots.filter(
+    (lot) =>
+      lot.lat >= bounds.swLat &&
+      lot.lat <= bounds.neLat &&
+      lot.lng >= bounds.swLng &&
+      lot.lng <= bounds.neLng,
+  );
+}
+
 export function useParkingData() {
-  const [parkingLots, setParkingLots] = useState<ParkingLot[]>([]);
+  const [parkingLots, setParkingLots] = useState<(ParkingLot | ParkingLotSummary)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -23,23 +35,23 @@ export function useParkingData() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const abortRef = useRef<AbortController | undefined>(undefined);
 
-  const load = useCallback(async (m: DataMode, bounds?: MapBounds, district?: string) => {
+  const load = useCallback(async (m: DataMode, bounds?: MapBounds, _district?: string) => {
+    if (m !== 'REALTIME') {
+      const filtered = filterByBounds(staticLots as ParkingLotSummary[], bounds);
+      if (filtered.length > 0) setParkingLots(filtered);
+      setLastUpdated(new Date());
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
 
-    // 실시간: type만, 비실시간: bounds + district 포함
-    const isRealtime = m === 'REALTIME';
-
     try {
       setLoading(true);
-      const data = await fetchParkingLots(
-        m,
-        isRealtime ? undefined : bounds,
-        isRealtime ? undefined : district,
-      );
-      if (data.length > 0) {
-        setParkingLots(data);
-      }
+      const data = await fetchParkingLots(m, undefined, undefined);
+      if (data.length > 0) setParkingLots(data);
       setLastUpdated(new Date());
       setError(null);
     } catch (err) {
@@ -51,30 +63,38 @@ export function useParkingData() {
   }, []);
 
   const startInterval = useCallback(() => {
+    if (modeRef.current !== 'REALTIME') return;
     if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => load(modeRef.current, boundsRef.current, districtRef.current), REFRESH_INTERVAL);
+    intervalRef.current = setInterval(
+      () => load(modeRef.current, boundsRef.current, districtRef.current),
+      REFRESH_INTERVAL,
+    );
   }, [load]);
 
-  const updateBounds = useCallback((bounds: MapBounds, region?: string) => {
-    boundsRef.current = bounds;
-    if (region) {
-      districtRef.current = extractDistrict(region);
-    }
+  const updateBounds = useCallback(
+    (bounds: MapBounds, region?: string) => {
+      boundsRef.current = bounds;
+      if (region) districtRef.current = extractDistrict(region);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      load(modeRef.current, bounds, districtRef.current);
-      startInterval();
-    }, DEBOUNCE_MS);
-  }, [load, startInterval]);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        load(modeRef.current, bounds, districtRef.current);
+        startInterval();
+      }, DEBOUNCE_MS);
+    },
+    [load, startInterval],
+  );
 
-  const changeMode = useCallback((newMode: DataMode) => {
-    setMode(newMode);
-    modeRef.current = newMode;
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    load(newMode, boundsRef.current, districtRef.current);
-    startInterval();
-  }, [load, startInterval]);
+  const changeMode = useCallback(
+    (newMode: DataMode) => {
+      setMode(newMode);
+      modeRef.current = newMode;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      load(newMode, boundsRef.current, districtRef.current);
+      if (newMode === 'REALTIME') startInterval();
+    },
+    [load, startInterval],
+  );
 
   const refresh = useCallback(() => {
     load(modeRef.current, boundsRef.current, districtRef.current);
