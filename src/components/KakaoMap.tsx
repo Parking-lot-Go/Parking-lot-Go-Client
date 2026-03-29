@@ -1,38 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { ParkingLot, ParkingLotSummary, MapBounds, DataMode } from '../types/parking';
+import { openNavigation } from '../utils/navigation';
 
 type AnyLot = ParkingLot | ParkingLotSummary;
 
 function isFullLot(lot: AnyLot): lot is ParkingLot {
   return 'address' in lot;
-}
-
-function openNavigation(lat: number, lng: number, name: string) {
-  const provider = localStorage.getItem('preferredNav') || 'naver';
-  const encoded = encodeURIComponent(name);
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  if (provider === 'naver') {
-    if (isAndroid) {
-      // Intent URL → Chrome Custom Tab이 처리 → 네이버지도 앱 실행
-      window.open(`intent://route/car?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=carpark#Intent;scheme=nmap;package=com.nhn.android.nmap;end`, '_blank');
-    } else if (isIOS) {
-      location.href = `nmap://route/car?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=carpark`;
-    } else {
-      window.open(`https://map.naver.com/index.nhn?menu=route&pathType=0&elng=${lng}&elat=${lat}&etext=${encoded}`, '_blank');
-    }
-    return;
-  }
-
-  // 카카오내비
-  if (isAndroid) {
-    window.open(`intent://route?ep=${lat},${lng}&by=CAR&destinationName=${encoded}#Intent;scheme=kakaonavi;package=com.locnall.KimGiSa;end`, '_blank');
-  } else if (isIOS) {
-    location.href = `kakaonavi://route?ep=${lat},${lng}&by=CAR&destinationName=${encoded}`;
-  } else {
-    window.open(`https://map.kakao.com/link/to/${encoded},${lat},${lng}`, '_blank');
-  }
 }
 
 const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_APP_KEY;
@@ -48,6 +21,8 @@ interface Props {
   onCenterRegionChange?: (region: string) => void;
   onBoundsChange?: (bounds: MapBounds, region?: string) => void;
   onMapClick?: () => void;
+  onShowDetail?: (lot: AnyLot) => void;
+  panTo?: { lat: number; lng: number } | null;
   dataMode: DataMode;
 }
 
@@ -75,15 +50,18 @@ function formatTime(t: string): string {
   return t.slice(0, 2) + ':' + t.slice(2);
 }
 
-export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, searchKeyword, onSearchResult, onCenterRegionChange, onBoundsChange, onMapClick, dataMode }: Props) {
+export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, searchKeyword, onSearchResult, onCenterRegionChange, onBoundsChange, onMapClick, onShowDetail, panTo, dataMode }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const overlayMapRef = useRef<Map<string, { overlay: kakao.maps.CustomOverlay; el: HTMLDivElement }>>(new Map());
   const popupRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const myLocOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
+  const onShowDetailRef = useRef(onShowDetail);
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkError, setSdkError] = useState<string | null>(null);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'loading' | 'active' | 'error'>('idle');
+
+  useEffect(() => { onShowDetailRef.current = onShowDetail; }, [onShowDetail]);
 
   // 1) Load Kakao SDK
   useEffect(() => {
@@ -336,19 +314,28 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
             <img src="/navi_icon.png" alt="" width="16" height="16" class="popup-nav-icon" />
             길 안내
           </button>
+          <button class="popup-detail-btn">
+            상세보기
+          </button>
         </div>
       </div>
       <div class="popup-tail"></div>
     `;
 
-    el.querySelector('.popup-close')!.addEventListener('click', (e) => {
+    el.querySelector('.popup-close')?.addEventListener('click', (e) => {
       e.stopPropagation();
       closePopup();
     });
 
-    el.querySelector('.popup-nav-btn')!.addEventListener('click', (e) => {
+    el.querySelector('.popup-nav-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       openNavigation(toLat(lot), toLng(lot), lot.parkingName);
+    });
+
+    el.querySelector('.popup-detail-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closePopup();
+      onShowDetailRef.current?.(lot);
     });
 
     popupRef.current = new kakao.maps.CustomOverlay({
@@ -470,7 +457,15 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
     showPopup(selectedLot);
   }, [selectedLot, showPopup]);
 
-  // 5) Kakao Places search
+  // 5) panTo — GPS 위치로 지도 이동
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!panTo || !map) return;
+    map.setCenter(new kakao.maps.LatLng(panTo.lat, panTo.lng));
+    map.setLevel(5);
+  }, [panTo]);
+
+  // 6) Kakao Places search
   const searchOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
 
   useEffect(() => {

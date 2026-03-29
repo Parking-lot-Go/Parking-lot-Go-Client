@@ -1,15 +1,14 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParkingData } from './hooks/useParkingData';
 import { fetchParkingDetail } from './services/parkingApi';
 import Header from './components/Header';
 import KakaoMap from './components/KakaoMap';
 import NearbySheet from './components/NearbySheet';
-import TabPage from './components/TabPage';
+import SavedSheet from './components/SavedSheet';
+import DetailPage from './components/DetailPage';
 import NavBar, { type TabId } from './components/NavBar';
 import type { ParkingLot, ParkingLotSummary, NearbyParkingLot, MapBounds } from './types/parking';
 import './App.css';
-
-const PAGE_TABS: TabId[] = ['community', 'saved', 'mypage'];
 
 export default function App() {
   const { parkingLots, loading, updateBounds, mode, changeMode, isNearbyMode, searchNearby, exitNearby } = useParkingData();
@@ -19,8 +18,11 @@ export default function App() {
   const [centerRegion, setCenterRegion] = useState<string>('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('nearby');
-  const [openPage, setOpenPage] = useState<TabId | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('home');
+  const [savedOpen, setSavedOpen] = useState(false);
+  const [savedExpanded, setSavedExpanded] = useState(false);
+  const [panTo, setPanTo] = useState<{ lat: number; lng: number } | null>(null);
+  const [detailLot, setDetailLot] = useState<ParkingLot | null>(null);
   const userLocRef = useRef<{ lat: number; lng: number } | null>(null);
   const mapCenterRef = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -49,6 +51,7 @@ export default function App() {
 
   const doNearbySearch = useCallback((lat: number, lng: number) => {
     userLocRef.current = { lat, lng };
+    setPanTo({ lat, lng });
     searchNearby(lat, lng);
     setSheetOpen(true);
   }, [searchNearby]);
@@ -74,12 +77,9 @@ export default function App() {
 
   const handleTabChange = useCallback((tab: TabId) => {
     if (tab === 'nearby') {
-      // 다른 탭 페이지 닫기
-      setOpenPage(null);
+      setSavedOpen(false);
       setActiveTab(tab);
-
       if (isNearbyMode) {
-        // 이미 내 주변 모드: 시트 토글
         setSheetOpen(prev => !prev);
         return;
       }
@@ -98,14 +98,58 @@ export default function App() {
       return;
     }
 
-    // 커뮤니티·저장·마이페이지: 내 주변 시트 내리고 해당 페이지 열기
-    setSheetOpen(false);
-    setActiveTab(tab);
-    // 같은 탭 재클릭이면 토글
-    setOpenPage(prev => (prev === tab ? null : tab));
+    if (tab === 'home') {
+      setSavedOpen(false);
+      setSheetOpen(false);
+      setActiveTab(tab);
+      return;
+    }
+
+    if (tab === 'saved') {
+      setSheetOpen(false);
+      setActiveTab(tab);
+      setSavedOpen(prev => !prev);
+      return;
+    }
   }, [isNearbyMode, doNearbySearch]);
 
-  const hideHeader = openPage === 'community' || openPage === 'mypage';
+  const handleShowDetail = useCallback(async (lot: ParkingLot | ParkingLotSummary) => {
+    try {
+      const full = await fetchParkingDetail(lot.id);
+      setDetailLot(full ?? (lot as ParkingLot));
+    } catch {
+      setDetailLot(lot as ParkingLot);
+    }
+  }, []);
+
+  const hideHeader = savedExpanded || !!detailLot;
+
+  // 뒤로가기 가로채기 — 열린 UI가 있으면 닫고, 없으면 앱 종료 방지
+  const closeTopRef = useRef<() => boolean>(() => false);
+  useEffect(() => {
+    closeTopRef.current = () => {
+      if (detailLot) { setDetailLot(null); return true; }
+      if (savedExpanded) { setSavedExpanded(false); return true; }
+      if (savedOpen) { setSavedOpen(false); return true; }
+      if (sheetOpen) { setSheetOpen(false); return true; }
+      if (selectedLot) { setSelectedLot(null); return true; }
+      return false;
+    };
+  }, [detailLot, savedExpanded, savedOpen, sheetOpen, selectedLot]);
+
+  useEffect(() => {
+    history.pushState({ pwa: true }, '');
+    const handler = () => {
+      const closed = closeTopRef.current();
+      // 항상 스택 유지 — 앱이 꺼지지 않도록
+      history.pushState({ pwa: true }, '');
+      if (!closed) {
+        // 닫을 게 없으면 홈 화면처럼 아무것도 안 함
+      }
+    };
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []);
 
   const nearbyLots = isNearbyMode
     ? (parkingLots as NearbyParkingLot[]).filter((l): l is NearbyParkingLot => 'distance' in l)
@@ -135,6 +179,8 @@ export default function App() {
             onCenterRegionChange={setCenterRegion}
             onBoundsChange={handleBoundsChange}
             onMapClick={isNearbyMode ? handleMinimizeSheet : undefined}
+            onShowDetail={handleShowDetail}
+            panTo={panTo}
             dataMode={mode}
           />
 
@@ -157,17 +203,23 @@ export default function App() {
             />
           )}
 
-          {PAGE_TABS.map(tab => (
-            <TabPage
-              key={tab}
-              tab={tab}
-              open={openPage === tab}
-              onClose={() => setOpenPage(null)}
-            />
-          ))}
+          <SavedSheet
+            open={savedOpen}
+            expanded={savedExpanded}
+            onClose={() => { setSavedOpen(false); setSavedExpanded(false); }}
+            onMinimize={() => { setSavedOpen(false); setSavedExpanded(false); }}
+            onExpandChange={setSavedExpanded}
+          />
+
         </main>
       </div>
       <NavBar activeTab={activeTab} onTabChange={handleTabChange} />
+
+      <DetailPage
+        lot={detailLot}
+        open={!!detailLot}
+        onClose={() => setDetailLot(null)}
+      />
     </div>
   );
 }
