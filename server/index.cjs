@@ -142,6 +142,47 @@ app.get('/api/v1/parking', async (req, res) => {
   }
 });
 
+// 위도/경도 간 거리 계산 (미터)
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// API: /api/v1/search?type=near&lat=&lng= — 내 주변 가까운 주차장 10개
+app.get('/api/v1/search', async (req, res) => {
+  try {
+    const { type, lat, lng } = req.query;
+    if (type !== 'near' || !lat || !lng) {
+      return res.status(400).json({ error: '유효하지 않은 요청입니다' });
+    }
+
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    if (isNaN(userLat) || isNaN(userLng)) {
+      return res.status(400).json({ error: '위치 값이 올바르지 않습니다' });
+    }
+
+    const data = await fetchSeoulParking('1');
+
+    const withDistance = data
+      .map((lot) => ({
+        ...lot,
+        distance: Math.round(haversine(userLat, userLng, parseFloat(lot.lat), parseFloat(lot.lng))),
+      }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 10);
+
+    res.json(withDistance);
+  } catch (err) {
+    console.error('[API Error]', err.message);
+    res.status(500).json({ error: '데이터를 불러올 수 없습니다' });
+  }
+});
+
 // API: /api/v1/parking/:id — 단일 주차장 상세 조회
 app.get('/api/v1/parking/:id', async (req, res) => {
   try {

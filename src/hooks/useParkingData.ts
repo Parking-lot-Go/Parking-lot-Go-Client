@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import type { ParkingLot, ParkingLotSummary, MapBounds, DataMode } from '../types/parking';
-import { fetchParkingLots } from '../services/parkingApi';
+import { fetchParkingLots, fetchNearbyLots } from '../services/parkingApi';
 import staticLots from '../data/parkingLots_static.json';
 
 const REFRESH_INTERVAL = 30_000;
@@ -28,6 +28,7 @@ export function useParkingData() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mode, setMode] = useState<DataMode>('REALTIME');
+  const [isNearbyMode, setIsNearbyMode] = useState(false);
   const boundsRef = useRef<MapBounds | undefined>(undefined);
   const modeRef = useRef<DataMode>(mode);
   const districtRef = useRef<string>('');
@@ -96,9 +97,36 @@ export function useParkingData() {
     [load, startInterval],
   );
 
+  const searchNearby = useCallback(async (lat: number, lng: number) => {
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    try {
+      setLoading(true);
+      setIsNearbyMode(true);
+      const data = await fetchNearbyLots(lat, lng);
+      setParkingLots(data);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : '주변 주차장을 불러올 수 없습니다');
+      setIsNearbyMode(false);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const exitNearby = useCallback(() => {
+    setIsNearbyMode(false);
+    load(modeRef.current, boundsRef.current, districtRef.current);
+    startInterval();
+  }, [load, startInterval]);
+
   const refresh = useCallback(() => {
     load(modeRef.current, boundsRef.current, districtRef.current);
   }, [load]);
 
-  return { parkingLots, loading, error, lastUpdated, refresh, updateBounds, mode, changeMode };
+  return { parkingLots, loading, error, lastUpdated, refresh, updateBounds, mode, changeMode, isNearbyMode, searchNearby, exitNearby };
 }

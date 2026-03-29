@@ -15,20 +15,21 @@ function openNavigation(lat: number, lng: number, name: string) {
 
   if (provider === 'naver') {
     if (isAndroid) {
-      window.location.href = `intent://route/car?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=carpark#Intent;scheme=nmap;package=com.nhn.android.nmap;end`;
+      // Intent URL → Chrome Custom Tab이 처리 → 네이버지도 앱 실행
+      window.open(`intent://route/car?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=carpark#Intent;scheme=nmap;package=com.nhn.android.nmap;end`, '_blank');
     } else if (isIOS) {
-      window.location.href = `nmap://route/car?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=carpark`;
+      location.href = `nmap://route/car?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=carpark`;
     } else {
-      window.open(`https://map.naver.com/index.nhn?elng=${lng}&elat=${lat}&etext=${encoded}&menu=route&pathType=0`, '_blank');
+      window.open(`https://map.naver.com/index.nhn?menu=route&pathType=0&elng=${lng}&elat=${lat}&etext=${encoded}`, '_blank');
     }
     return;
   }
 
-  // 카카오내비 (기본값)
+  // 카카오내비
   if (isAndroid) {
-    window.location.href = `intent://route?ep=${lat},${lng}&by=CAR&destinationName=${encoded}#Intent;scheme=kakaonavi;package=com.locnall.KimGiSa;end`;
+    window.open(`intent://route?ep=${lat},${lng}&by=CAR&destinationName=${encoded}#Intent;scheme=kakaonavi;package=com.locnall.KimGiSa;end`, '_blank');
   } else if (isIOS) {
-    window.location.href = `kakaonavi://route?ep=${lat},${lng}&by=CAR&destinationName=${encoded}`;
+    location.href = `kakaonavi://route?ep=${lat},${lng}&by=CAR&destinationName=${encoded}`;
   } else {
     window.open(`https://map.kakao.com/link/to/${encoded},${lat},${lng}`, '_blank');
   }

@@ -52,3 +52,7 @@ export interface MapBounds {
 }
 
 export type DataMode = 'REALTIME' | 'NON_REALTIME' | 'NOT_LINKED';
+
+export interface NearbyParkingLot extends ParkingLot {
+  distance: number;
+}
