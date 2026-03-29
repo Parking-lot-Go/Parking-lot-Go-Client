@@ -47,6 +47,7 @@ interface Props {
   onSearchResult: (placeName: string, lat: number, lng: number) => void;
   onCenterRegionChange?: (region: string) => void;
   onBoundsChange?: (bounds: MapBounds, region?: string) => void;
+  onMapClick?: () => void;
   dataMode: DataMode;
 }
 
@@ -74,7 +75,7 @@ function formatTime(t: string): string {
   return t.slice(0, 2) + ':' + t.slice(2);
 }
 
-export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, searchKeyword, onSearchResult, onCenterRegionChange, onBoundsChange, dataMode }: Props) {
+export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, searchKeyword, onSearchResult, onCenterRegionChange, onBoundsChange, onMapClick, dataMode }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const overlayMapRef = useRef<Map<string, { overlay: kakao.maps.CustomOverlay; el: HTMLDivElement }>>(new Map());
@@ -187,6 +188,7 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
           popupRef.current.setMap(null);
           popupRef.current = null;
         }
+        onMapClick?.();
       });
 
       kakao.maps.event.addListener(map, 'dragstart', () => {
@@ -331,9 +333,7 @@ export default function KakaoMap({ parkingLots, selectedLot, onSelectLot, search
         </div>
         <div class="popup-footer">
           <button class="popup-nav-btn">
-            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 2.5L16.5 11H13v6.5H7V11H3.5L10 2.5Z" fill="currentColor"/>
-            </svg>
+            <img src="/navi_icon.png" alt="" width="16" height="16" class="popup-nav-icon" />
             길 안내
           </button>
         </div>

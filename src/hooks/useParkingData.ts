@@ -27,10 +27,11 @@ export function useParkingData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [mode, setMode] = useState<DataMode>('REALTIME');
+  const [mode, setMode] = useState<DataMode>('NOT_LINKED');
   const [isNearbyMode, setIsNearbyMode] = useState(false);
+  const isNearbyModeRef = useRef(false);
   const boundsRef = useRef<MapBounds | undefined>(undefined);
-  const modeRef = useRef<DataMode>(mode);
+  const modeRef = useRef<DataMode>('NOT_LINKED');
   const districtRef = useRef<string>('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -79,6 +80,7 @@ export function useParkingData() {
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
+        if (isNearbyModeRef.current) return;
         load(modeRef.current, bounds, districtRef.current);
         startInterval();
       }, DEBOUNCE_MS);
@@ -105,6 +107,7 @@ export function useParkingData() {
     try {
       setLoading(true);
       setIsNearbyMode(true);
+      isNearbyModeRef.current = true;
       const data = await fetchNearbyLots(lat, lng);
       setParkingLots(data);
       setLastUpdated(new Date());
@@ -113,6 +116,7 @@ export function useParkingData() {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : '주변 주차장을 불러올 수 없습니다');
       setIsNearbyMode(false);
+      isNearbyModeRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -120,6 +124,7 @@ export function useParkingData() {
 
   const exitNearby = useCallback(() => {
     setIsNearbyMode(false);
+    isNearbyModeRef.current = false;
     load(modeRef.current, boundsRef.current, districtRef.current);
     startInterval();
   }, [load, startInterval]);

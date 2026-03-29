@@ -40,31 +40,6 @@ export default function Header({
 
   return (
     <header className="app-header">
-      <div className="header-top-row">
-        {centerRegion && (
-          <div className="center-region">
-            <svg viewBox="0 0 18 18" width="14" height="14">
-              <path fill="#1e293b" d="M9,1C5.4,1,2.5,3.7,2.5,7.1c0,1.2.4,2.3,1,3.3l5.1,6.1c.2.2.6.2.8,0l5.1-6.1c.7-1,1-2.1,1-3.3C15.5,3.7,12.6,1,9,1zM9,9c-.8,0-1.5-.7-1.5-1.5S8.2,6,9,6s1.5.7,1.5,1.5S9.8,9,9,9z"/>
-            </svg>
-            <span>{centerRegion}</span>
-          </div>
-        )}
-        <div className="mode-toggle">
-          <button
-            className={`mode-btn ${dataMode === 'NOT_LINKED' ? 'active' : ''}`}
-            onClick={() => onModeChange('NOT_LINKED')}
-          >
-            비실시간
-          </button>
-          <button
-            className={`mode-btn ${dataMode === 'REALTIME' ? 'active' : ''}`}
-            onClick={() => onModeChange('REALTIME')}
-          >
-            <span className="realtime-dot" />
-            실시간
-          </button>
-        </div>
-      </div>
       <div className="search-box">
         <svg className="search-box-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8" />
@@ -89,6 +64,31 @@ export default function Header({
           <button className="search-submit" onClick={handleSearchClick} aria-label="검색">
             검색
           </button>
+        )}
+      </div>
+      <div className="header-top-row">
+        <div className="mode-toggle">
+          <button
+            className={`mode-btn ${dataMode === 'NOT_LINKED' ? 'active' : ''}`}
+            onClick={() => onModeChange('NOT_LINKED')}
+          >
+            비실시간
+          </button>
+          <button
+            className={`mode-btn ${dataMode === 'REALTIME' ? 'active' : ''}`}
+            onClick={() => onModeChange('REALTIME')}
+          >
+            <span className="realtime-dot" />
+            실시간
+          </button>
+        </div>
+        {centerRegion && (
+          <div className="center-region">
+            <svg viewBox="0 0 18 18" width="14" height="14">
+              <path fill="#1e293b" d="M9,1C5.4,1,2.5,3.7,2.5,7.1c0,1.2.4,2.3,1,3.3l5.1,6.1c.2.2.6.2.8,0l5.1-6.1c.7-1,1-2.1,1-3.3C15.5,3.7,12.6,1,9,1zM9,9c-.8,0-1.5-.7-1.5-1.5S8.2,6,9,6s1.5.7,1.5,1.5S9.8,9,9,9z"/>
+            </svg>
+            <span>{centerRegion}</span>
+          </div>
         )}
       </div>
     </header>
