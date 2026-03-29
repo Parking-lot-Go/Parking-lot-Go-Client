@@ -4,9 +4,12 @@ import { fetchParkingDetail } from './services/parkingApi';
 import Header from './components/Header';
 import KakaoMap from './components/KakaoMap';
 import NearbySheet from './components/NearbySheet';
+import TabPage from './components/TabPage';
 import NavBar, { type TabId } from './components/NavBar';
 import type { ParkingLot, ParkingLotSummary, NearbyParkingLot, MapBounds } from './types/parking';
 import './App.css';
+
+const PAGE_TABS: TabId[] = ['community', 'saved', 'mypage'];
 
 export default function App() {
   const { parkingLots, loading, updateBounds, mode, changeMode, isNearbyMode, searchNearby, exitNearby } = useParkingData();
@@ -17,6 +20,7 @@ export default function App() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('nearby');
+  const [openPage, setOpenPage] = useState<TabId | null>(null);
   const userLocRef = useRef<{ lat: number; lng: number } | null>(null);
   const mapCenterRef = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -69,9 +73,16 @@ export default function App() {
   }, [handleSelectLot]);
 
   const handleTabChange = useCallback((tab: TabId) => {
-    setActiveTab(tab);
     if (tab === 'nearby') {
-      if (isNearbyMode) { setSheetOpen(true); return; }
+      // 다른 탭 페이지 닫기
+      setOpenPage(null);
+      setActiveTab(tab);
+
+      if (isNearbyMode) {
+        // 이미 내 주변 모드: 시트 토글
+        setSheetOpen(prev => !prev);
+        return;
+      }
       setGpsLoading(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -84,8 +95,17 @@ export default function App() {
         },
         { enableHighAccuracy: true, timeout: 10000 },
       );
+      return;
     }
+
+    // 커뮤니티·저장·마이페이지: 내 주변 시트 내리고 해당 페이지 열기
+    setSheetOpen(false);
+    setActiveTab(tab);
+    // 같은 탭 재클릭이면 토글
+    setOpenPage(prev => (prev === tab ? null : tab));
   }, [isNearbyMode, doNearbySearch]);
+
+  const hideHeader = openPage === 'community' || openPage === 'mypage';
 
   const nearbyLots = isNearbyMode
     ? (parkingLots as NearbyParkingLot[]).filter((l): l is NearbyParkingLot => 'distance' in l)
@@ -93,15 +113,17 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header
-        searchQuery={inputQuery}
-        onSearchChange={setInputQuery}
-        onSearch={handleSearch}
-        onClearSearch={() => setSearchKeyword(null)}
-        centerRegion={centerRegion}
-        dataMode={mode}
-        onModeChange={changeMode}
-      />
+      {!hideHeader && (
+        <Header
+          searchQuery={inputQuery}
+          onSearchChange={setInputQuery}
+          onSearch={handleSearch}
+          onClearSearch={() => setSearchKeyword(null)}
+          centerRegion={centerRegion}
+          dataMode={mode}
+          onModeChange={changeMode}
+        />
+      )}
       <div className="app-body">
         <main className="app-map">
           <KakaoMap
@@ -134,6 +156,15 @@ export default function App() {
               onSelectLot={handleSheetSelectLot}
             />
           )}
+
+          {PAGE_TABS.map(tab => (
+            <TabPage
+              key={tab}
+              tab={tab}
+              open={openPage === tab}
+              onClose={() => setOpenPage(null)}
+            />
+          ))}
         </main>
       </div>
       <NavBar activeTab={activeTab} onTabChange={handleTabChange} />
